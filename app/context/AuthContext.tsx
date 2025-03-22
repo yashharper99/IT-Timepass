@@ -1,12 +1,6 @@
-import React, { createContext, useState, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authAPI } from '../services/api';
-
-interface User {
-  id: number;
-  email: string;
-  name: string;
-}
+import { login as loginApi, register as registerApi, User, AuthResponse } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -18,15 +12,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  isAuthenticated: false,
-  user: null,
-  loading: false,
-  error: null,
-  login: async () => {},
-  register: async () => {},
-  logout: async () => {},
-});
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,12 +24,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await authAPI.login(email, password);
+      const response = await loginApi({ email, password });
       await AsyncStorage.setItem('user', JSON.stringify(response.user));
+      await AsyncStorage.setItem('token', response.token);
       setUser(response.user);
       setIsAuthenticated(true);
     } catch (error: any) {
-      const errorMessage = error?.message || 'Login failed';
+      const errorMessage = error?.response?.data?.message || 'Login failed';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -55,13 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await authAPI.register(username, email, password);
+      const response = await registerApi({ username, email, password });
       await AsyncStorage.setItem('user', JSON.stringify(response.user));
       await AsyncStorage.setItem('token', response.token);
       setUser(response.user);
       setIsAuthenticated(true);
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Registration failed';
+      const errorMessage = error?.response?.data?.message || 'Registration failed';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -70,9 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('user');
-    setUser(null);
-    setIsAuthenticated(false);
+    try {
+      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('token');
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (

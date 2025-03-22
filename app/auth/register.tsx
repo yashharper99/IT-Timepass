@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { useAuth } from '../../src/context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { router } from 'expo-router';
 
 export default function RegisterScreen() {
+  // Add loading state
+  const [loading, setLoading] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -13,13 +15,31 @@ export default function RegisterScreen() {
   const { register } = useAuth();
 
   const handleRegister = async () => {
+    if (!firstName || !lastName || !email || !password) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     try {
-      await register(firstName + ' ' + lastName, email, password);
+      setLoading(true);
+      const username = `${firstName.toLowerCase()}${lastName.toLowerCase()}`;
+      console.log('Attempting registration with:', { username, email }); // Debug log
+      await register(username, email, password); // Keep only the required parameters
       router.replace('/(tabs)');
     } catch (error: any) {
-      alert(error?.message || 'Registration failed');
+      console.error('Registration error:', error);
+      alert(error?.response?.data?.message || error?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Update the button to show loading state
+  // Remove the misplaced TouchableOpacity component (around line 40-50)
+  // And update the styles and the button in the return statement
+  
+  // Remove this floating TouchableOpacity component
+  // <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} ...>
 
   return (
     <KeyboardAvoidingView
